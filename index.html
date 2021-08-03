@@ -1,0 +1,185 @@
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script src="all.js"></script>
+<style>
+.toolbar {
+	display:flex;
+}
+
+.label {
+	padding-left:5px;
+}
+
+td {
+	border: 1px solid #444444;
+}
+
+.hora {
+	display:flex;
+	flex-orientation:column;
+}
+</style>
+<script>
+	linhas.sort((a,b)=>a.nome.localeCompare(b.nome));
+
+	function changeSentidos() {
+		for(const linha of linhas) {
+			const h = linha.horarios;
+			for(const key of Object.keys(linha.horarios)) {
+				if(key.includes("Bairro") || key.includes("Aeroporto") || key.includes("Categeró") || key.includes("Celso Ramos")) {
+					h['Bairro'] = h[key];
+					delete h[key];
+				} else if(key.includes("TICEN") || key.includes("Saída Centro") ) {
+					h['TICEN'] = h[key];
+					delete h[key];				
+				} else if(key.includes("Saída Terminal Cidade de Florianópolis")) {
+					h['TCF'] = h[key];
+					delete h[key];				
+				} else if(key.includes("Saída")) {
+					h[key.replace("Saída ","")] = h[key];
+					delete h[key];				
+				}
+				
+				
+			}
+		}	
+		
+	}
+
+	function popularSentidos() {
+		const sentidos = [];
+		for(const linha of linhas) {
+			for(const s of Object.keys(linha.horarios)) {
+				if(!sentidos.includes(s)) {
+					sentidos.push(s);
+				}
+			}
+		}
+		sentidos.sort();
+		
+		const sentidoElto = document.getElementById("origem");
+		sentidoElto.innerHTML = '';
+		for(const s of sentidos) {
+			const opt = document.createElement("option");
+			opt.innerHTML = s;
+			//opt.selected=true;
+			sentidoElto.appendChild(opt);	
+		}	
+	}
+	
+	function popularHora() {
+		
+		const horaElto = document.getElementById("hora");
+		horaElto.innerHTML = '';
+		horaElto.appendChild(createElto('option','AGORA'));
+		for(let i=4;i<24;i++) {
+			horaElto.appendChild(createElto('option',toHora(i)));
+		}	
+	}
+
+	function popularTabela() {
+		const tabela = document.getElementById("tabela");
+		const query = document.getElementById("query").value;
+		const dia = document.getElementById("dia").value;
+		const origem = document.getElementById("origem").value;
+		let hora = document.getElementById("hora").value;
+		if(hora==='AGORA') {
+			hora =  new Date().getHours()+'';
+		}
+		
+		const rows = [];
+		
+		for(const linha of linhas) {
+			for(const sentido of Object.keys(linha.horarios)) {
+				if(linha.horarios[sentido][dia] && matchOrigem(linha,sentido,origem) && matchQuery(linha,query) && sentido.toLowerCase()!==query.toLowerCase()) {
+					const passando = sentido!==origem;
+					const horas = linha.horarios[sentido][dia].filter(h=>isMaior(h,hora));
+					for(const hora of horas) {
+						rows.push({nome:linha.nome,sentido,hora,passando});
+					}
+				}
+			}
+		}	
+		
+		rows.sort((a,b)=>a.hora.localeCompare(b.hora))
+		
+		tabela.innerHTML = '';
+		for(const row of rows) {
+			const tr = document.createElement("tr");			
+			if(row.passando) {
+				tr.style.backgroundColor="#FFFF88"
+			} else {
+				tr.style.backgroundColor="#EEEEFF"
+			}
+			tr.appendChild(createElto('td',row.nome));
+			tr.appendChild(createElto('td',row.sentido));
+			tr.appendChild(createElto('td',row.hora));
+			
+			tabela.appendChild(tr);
+		}
+	}
+	
+	function isMaior(a,b) {
+		return parseInt(a.split(":")[0])>=parseInt(b);
+	}
+
+	function matchOrigem(linha,sentido,origem) {
+		if(sentido!==origem && linha.horarios[origem]) {
+			return false;
+		}
+		return origem.toLowerCase()===sentido.toLowerCase() || containsAny(linha.itinerario,origem) || contains(linha.nome,origem);
+	}
+
+	function matchQuery(linha,query) {
+		return containsAny(linha.itinerario,query) || contains(linha.nome,query) || (!!linha.horarios[query]);
+	}
+	
+	function contains(a,b) {
+		return a.toLowerCase().includes(b.toLowerCase());
+	}
+
+	function containsAny(a,b) {
+		return a.filter(x=>contains(x,b)).length>0
+	}
+
+	function createElto(name,value) {
+		const e = document.createElement(name);
+		e.innerHTML = value;
+		return e;
+	}
+
+	function load() {
+		changeSentidos();
+		popularHora();
+		popularSentidos();		
+		popularTabela();		
+			
+	}	
+	
+	function toHora(i) {
+		return i>9?i:'0'+i;
+	}
+	
+</script>
+</head>
+<body onload="load()">
+	<div class="toolbar">
+	<input type="text" id="query" onchange="popularTabela()"/>
+	<select id="origem" onchange="popularTabela()" value="TITRI">
+	</select>
+	<select id="dia" onchange="popularTabela()">
+		<option>Sábado</option>
+		<option>Domingos e Feriados</option>
+		<option>Dias Úteis</option>
+	</select>
+	<select id="hora" onchange="popularTabela()">
+	</select>
+	
+	</div>
+	<table id="tabela" cellspacing="0">
+		
+	</table>
+</body>
+</html>
